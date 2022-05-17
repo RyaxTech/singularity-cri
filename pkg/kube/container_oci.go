@@ -159,64 +159,65 @@ func (t *containerTranslator) configureMounts() error {
 }
 
 func (t *containerTranslator) configureDevices() error {
-	if t.cont.GetLinux().GetSecurityContext().GetPrivileged() {
-		hostDevices, err := devices.HostDevices()
-		if err != nil {
-			return err
-		}
-		for _, hostDevice := range hostDevices {
-			t.g.AddDevice(specs.LinuxDevice{
-				Path:     hostDevice.Path,
-				Type:     string(hostDevice.Type),
-				Major:    hostDevice.Major,
-				Minor:    hostDevice.Minor,
-				FileMode: &hostDevice.FileMode,
-				UID:      &hostDevice.Uid,
-				GID:      &hostDevice.Gid,
-			})
-		}
-		t.g.Config.Linux.Resources.Devices = []specs.LinuxDeviceCgroup{{Allow: true, Access: "rwm"}}
-		return nil
+	// FIXME: This is a hack that ALWAYS GIVE PRIVILEGES!!! DON'T USE IT IN PRODUCTION
+	//if t.cont.GetLinux().GetSecurityContext().GetPrivileged() {
+	hostDevices, err := devices.HostDevices()
+	if err != nil {
+		return err
 	}
-
-	for _, dev := range t.cont.GetDevices() {
-		device, err := devices.DeviceFromPath(dev.GetHostPath(), dev.GetPermissions())
-		if err == devices.ErrNotADevice {
-			devs, err := devices.GetDevices(dev.GetHostPath())
-			if err != nil {
-				return fmt.Errorf("could not read devices in %s: %v", dev.GetHostPath(), err)
-			}
-
-			for _, device := range devs {
-				t.g.AddDevice(specs.LinuxDevice{
-					Path:     strings.Replace(device.Path, dev.GetHostPath(), dev.GetContainerPath(), 1),
-					Type:     string(device.Type),
-					Major:    device.Major,
-					Minor:    device.Minor,
-					FileMode: &device.FileMode,
-					UID:      &device.Uid,
-					GID:      &device.Gid,
-				})
-				t.g.AddLinuxResourcesDevice(true, string(device.Type), &device.Major, &device.Minor, device.Permissions)
-			}
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("could not get device: %v", err)
-		}
-
+	for _, hostDevice := range hostDevices {
 		t.g.AddDevice(specs.LinuxDevice{
-			Path:     device.Path,
-			Type:     string(device.Type),
-			Major:    device.Major,
-			Minor:    device.Minor,
-			FileMode: &device.FileMode,
-			UID:      &device.Uid,
-			GID:      &device.Gid,
+			Path:     hostDevice.Path,
+			Type:     string(hostDevice.Type),
+			Major:    hostDevice.Major,
+			Minor:    hostDevice.Minor,
+			FileMode: &hostDevice.FileMode,
+			UID:      &hostDevice.Uid,
+			GID:      &hostDevice.Gid,
 		})
-		t.g.AddLinuxResourcesDevice(true, string(device.Type), &device.Major, &device.Minor, device.Permissions)
 	}
+	t.g.Config.Linux.Resources.Devices = []specs.LinuxDeviceCgroup{{Allow: true, Access: "rwm"}}
 	return nil
+	//}
+
+	//for _, dev := range t.cont.GetDevices() {
+	//	device, err := devices.DeviceFromPath(dev.GetHostPath(), dev.GetPermissions())
+	//	if err == devices.ErrNotADevice {
+	//		devs, err := devices.GetDevices(dev.GetHostPath())
+	//		if err != nil {
+	//			return fmt.Errorf("could not read devices in %s: %v", dev.GetHostPath(), err)
+	//		}
+
+	//		for _, device := range devs {
+	//			t.g.AddDevice(specs.LinuxDevice{
+	//				Path:     strings.Replace(device.Path, dev.GetHostPath(), dev.GetContainerPath(), 1),
+	//				Type:     string(device.Type),
+	//				Major:    device.Major,
+	//				Minor:    device.Minor,
+	//				FileMode: &device.FileMode,
+	//				UID:      &device.Uid,
+	//				GID:      &device.Gid,
+	//			})
+	//			t.g.AddLinuxResourcesDevice(true, string(device.Type), &device.Major, &device.Minor, device.Permissions)
+	//		}
+	//		continue
+	//	}
+	//	if err != nil {
+	//		return fmt.Errorf("could not get device: %v", err)
+	//	}
+
+	//	t.g.AddDevice(specs.LinuxDevice{
+	//		Path:     device.Path,
+	//		Type:     string(device.Type),
+	//		Major:    device.Major,
+	//		Minor:    device.Minor,
+	//		FileMode: &device.FileMode,
+	//		UID:      &device.Uid,
+	//		GID:      &device.Gid,
+	//	})
+	//	t.g.AddLinuxResourcesDevice(true, string(device.Type), &device.Major, &device.Minor, device.Permissions)
+	//}
+	//return nil
 }
 
 func (t *containerTranslator) configureNamespaces() {
